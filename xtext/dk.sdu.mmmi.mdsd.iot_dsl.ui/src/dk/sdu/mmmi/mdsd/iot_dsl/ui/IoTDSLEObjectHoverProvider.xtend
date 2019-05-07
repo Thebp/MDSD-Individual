@@ -17,15 +17,15 @@ class IoTDSLEObjectHoverProvider extends DefaultEObjectHoverProvider{
 		if(o instanceof ComponentType && o.programHasNoError) {
 			return	'''
 					<p>
-					Â«IF o instanceof ActuatorTypeÂ»
+					«IF o instanceof ActuatorType»
 					ActuatorType
-					Â«ELSEÂ»
+					«ELSE»
 					SensorType
-					Â«ENDIFÂ»
-					<b>Â«(o as ComponentType).nameÂ»</b>
-					Â«FOR b : o.getContainerOfType(System).boardsÂ»
-					Â«b.getComponentsOfType(o as ComponentType)Â»
-					Â«ENDFORÂ»
+					«ENDIF»
+					<b>«(o as ComponentType).name»</b>
+					«FOR b : o.getContainerOfType(System).boards»
+					«b.getComponentsOfType(o as ComponentType)»
+					«ENDFOR»
 					</p>
 					'''
 		}
@@ -34,11 +34,11 @@ class IoTDSLEObjectHoverProvider extends DefaultEObjectHoverProvider{
 	
 	def getComponentsOfType(Board board, ComponentType type) {
 		return	'''
-				Â«FOR c : board.elements.filter(Component)Â»
-				Â«IF c.type == typeÂ»
-				<br/>Â«board.nameÂ».Â«c.nameÂ»
-				Â«ENDIFÂ»
-				Â«ENDFORÂ»
+				«FOR c : board.elements.filter(Component)»
+				«IF c.type == type»
+				<br/>«board.name».«c.name»
+				«ENDIF»
+				«ENDFOR»
 				'''
 	}
 	

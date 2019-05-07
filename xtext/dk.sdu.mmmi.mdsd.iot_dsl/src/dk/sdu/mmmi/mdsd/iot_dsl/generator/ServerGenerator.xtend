@@ -7,6 +7,7 @@ import java.util.Map
 import dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL.*
 import java.util.Set
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL.ComponentType
 
 class ServerGenerator implements IGenerator{
 	
@@ -34,9 +35,9 @@ class ServerGenerator implements IGenerator{
 			
 			type server struct {
 				client mqtt.Client
-				Â«FOR board : system.boardsÂ»
-				Â«board.nameÂ» *board_Â«board.nameÂ»
-				Â«ENDFORÂ»
+				«FOR board : system.boards»
+				«board.name» *board_«board.name»
+				«ENDFOR»
 			}
 			
 			func (s *server) send_message(topic string, payload interface{}) {
@@ -44,52 +45,52 @@ class ServerGenerator implements IGenerator{
 				token.Wait()
 			}
 			
-			Â«FOR loop : system.logic.filter(Loop)Â»
-			Â«loop.generateLoopFunctionÂ»
-			Â«ENDFORÂ»
+			«FOR loop : system.logic.filter(Loop)»
+			«loop.generateLoopFunction»
+			«ENDFOR»
 			
-			Â«FOR expose : system.exposeÂ»
-			Â«expose.generateExposeÂ»
-			Â«ENDFORÂ»
+			«FOR expose : system.expose»
+			«expose.generateExpose»
+			«ENDFOR»
 			
-			Â«FOR board : system.boardsÂ»
-			Â«board.generateBoardTypeÂ»
-			Â«ENDFORÂ»
+			«FOR board : system.boards»
+			«board.generateBoardType»
+			«ENDFOR»
 			
-			Â«FOR componentType : system.usedComponentTypesÂ»
-			Â«componentType.generateComponentTypeÂ»
-			Â«ENDFORÂ»
+			«FOR componentType : system.usedComponentTypes»
+			«componentType.generateComponentType»
+			«ENDFOR»
 			
 			func main() {
-				Â«system.mqtt.generateMQTTÂ»
+				«system.mqtt.generateMQTT»
 				
 				server := server{
 					mqtt_client,
-					Â«FOR board : system.boardsÂ»
-					&board_Â«board.nameÂ»{Â«FOR component : board.elements.filter(Component)Â»&Â«component.type.nameÂ»{},Â«ENDFORÂ»},
-					Â«ENDFORÂ»
+					«FOR board : system.boards»
+					&board_«board.name»{«FOR component : board.elements.filter(Component)»&«component.type.name»{},«ENDFOR»},
+					«ENDFOR»
 				}
 				
-				Â«FOR board : system.boardsÂ»
-					Â«FOR component : board.elements.filter(Component)Â»
-						Â«IF component.type instanceof SensorTypeÂ»
-							Â«FOR property : component.type.propertiesÂ»
-							Â«generatePropertySubscription(board, component, property)Â»
-							Â«ENDFORÂ»
-						Â«ENDIFÂ»
-					Â«ENDFORÂ»
-				Â«ENDFORÂ»
+				«FOR board : system.boards»
+					«FOR component : board.elements.filter(Component)»
+						«IF component.type instanceof SensorType»
+							«FOR property : component.type.properties»
+							«generatePropertySubscription(board, component, property)»
+							«ENDFOR»
+						«ENDIF»
+					«ENDFOR»
+				«ENDFOR»
 				
 				r := mux.NewRouter()
-				Â«FOR expose : system.exposeÂ»
-				r.HandleFunc("/Â«expose.nameÂ»", server.Â«expose.nameÂ»)
-				Â«ENDFORÂ»
+				«FOR expose : system.expose»
+				r.HandleFunc("/«expose.name»", server.«expose.name»)
+				«ENDFOR»
 				
-				Â«FOR loop : system.logic.filter(Loop)Â»
-				go server.Â«loopNames.get(loop)Â»()
-				Â«ENDFORÂ»
+				«FOR loop : system.logic.filter(Loop)»
+				go server.«loopNames.get(loop)»()
+				«ENDFOR»
 				
-				http.ListenAndServe(":Â«system.server.portÂ»", r)
+				http.ListenAndServe(":«system.server.port»", r)
 			}
 			
 			func float_average(xs []float64) float64 {
@@ -110,18 +111,18 @@ class ServerGenerator implements IGenerator{
 		'''
 		
 		def CharSequence generatePropertySubscription(Board board, Component component, Property property) '''
-			mqtt_client.Subscribe("Â«board.nameÂ»/Â«component.nameÂ»/Â«property.nameÂ»", 0, func(client mqtt.Client, msg mqtt.Message) {
-				Â«IF property.type.equals("string")Â»
+			mqtt_client.Subscribe("«board.name»/«component.name»/«property.name»", 0, func(client mqtt.Client, msg mqtt.Message) {
+				«IF property.type.equals("string")»
 				value := string(msg.Payload())
-				server.Â«board.nameÂ».Â«component.nameÂ».Â«property.nameÂ» = value
-				Â«ELSEÂ»
-				value, err := Â«property.generateStringConversionÂ»
+				server.«board.name».«component.name».«property.name» = value
+				«ELSE»
+				value, err := «property.generateStringConversion»
 				if err != nil {
 					fmt.Println(fmt.Errorf("Error on topic %v: %v", msg.Topic(), err))
 				} else {
-					server.Â«board.nameÂ».Â«component.nameÂ».Â«property.nameÂ» = value
+					server.«board.name».«component.name».«property.name» = value
 				}
-				Â«ENDIFÂ»
+				«ENDIF»
 				
 			})
 		'''
@@ -136,10 +137,10 @@ class ServerGenerator implements IGenerator{
 		
 		def CharSequence generateMQTT(Mqtt mqtt) '''
 			opts := mqtt.NewClientOptions()
-			opts.AddBroker("Â«mqtt.hostÂ»:Â«mqtt.portÂ»")
+			opts.AddBroker("«mqtt.host»:«mqtt.port»")
 			opts.SetClientID("server")
-			opts.SetUsername("Â«mqtt.userÂ»")
-			opts.SetPassword("Â«mqtt.passÂ»")
+			opts.SetUsername("«mqtt.user»")
+			opts.SetPassword("«mqtt.pass»")
 			
 			mqtt_client := mqtt.NewClient(opts)
 			if token := mqtt_client.Connect(); token.Wait() && token.Error() != nil {
@@ -148,11 +149,11 @@ class ServerGenerator implements IGenerator{
 		'''
 		
 		def CharSequence generateLoopFunction(Loop loop) '''
-			func (s *server) Â«loopNames.get(loop)Â»() {
-				for _ = range time.Tick(Â«loop.timeÂ» * Â«loop.timeunit.generateTimeUnitÂ») {
-					Â«FOR statement : loop.statementsÂ»
-					Â«statement.generateStatementÂ»
-					Â«ENDFORÂ»
+			func (s *server) «loopNames.get(loop)»() {
+				for _ = range time.Tick(«loop.time» * «loop.timeunit.generateTimeUnit») {
+					«FOR statement : loop.statements»
+					«statement.generateStatement»
+					«ENDFOR»
 				}
 			}
 		'''
@@ -167,22 +168,22 @@ class ServerGenerator implements IGenerator{
 		
 		def CharSequence generateStatement(Statement statement) {
 			switch statement {
-				Variable: '''Â«statement.nameÂ» := Â«statement.exp.generateExpÂ»'''
+				Variable: '''«statement.name» := «statement.exp.generateExp»'''
 				Assignment: statement.generateAssignment
 				If: '''
-				if Â«statement.condition.generateExpÂ» {
-					Â«FOR stmt : statement.statementsÂ»
-					Â«stmt.generateStatementÂ»
-					Â«ENDFORÂ»
-				}Â«FOR elseif : statement.elseifsÂ» else if Â«elseif.condition.generateExpÂ» {
-					Â«FOR stmt : elseif.statementsÂ»
-					Â«stmt.generateStatementÂ»
-					Â«ENDFORÂ»
-				}Â«ENDFORÂ»Â«IF statement.^else !== nullÂ» else {
-					Â«FOR stmt : statement.^else.statementsÂ»
-					Â«stmt.generateStatementÂ»
-					Â«ENDFORÂ»
-				}Â«ENDIFÂ»
+				if «statement.condition.generateExp» {
+					«FOR stmt : statement.statements»
+					«stmt.generateStatement»
+					«ENDFOR»
+				}«FOR elseif : statement.elseifs» else if «elseif.condition.generateExp» {
+					«FOR stmt : elseif.statements»
+					«stmt.generateStatement»
+					«ENDFOR»
+				}«ENDFOR»«IF statement.^else !== null» else {
+					«FOR stmt : statement.^else.statements»
+					«stmt.generateStatement»
+					«ENDFOR»
+				}«ENDIF»
 				'''
 			}
 		}
@@ -192,54 +193,54 @@ class ServerGenerator implements IGenerator{
 		switch ref {
 			PropertyUse: {
 				if (ref.board !== null) '''
-					s.Â«ref.board.nameÂ».Â«ref.component.nameÂ».Â«ref.property.nameÂ» = Â«assignment.exp.generateExpÂ»
-					s.send_message("Â«ref.board.nameÂ»/Â«ref.component.nameÂ»/Â«ref.property.nameÂ»", fmt.Sprintf("%v", Â«assignment.exp.generateExpÂ»))'''
+					s.«ref.board.name».«ref.component.name».«ref.property.name» = «assignment.exp.generateExp»
+					s.send_message("«ref.board.name»/«ref.component.name»/«ref.property.name»", fmt.Sprintf("%v", «assignment.exp.generateExp»))'''
 				else {
 					'''
-					Â«FOR board : ref.getContainerOfType(System).boardsÂ»
-					Â«FOR component : board.getComponentsOfType(ref.componenttype)Â»
-					s.Â«board.nameÂ».Â«component.nameÂ».Â«ref.property.nameÂ» = Â«assignment.exp.generateExpÂ»
-					s.send_message("Â«board.nameÂ»/Â«component.nameÂ»/Â«ref.property.nameÂ»", fmt.Sprintf("%v", Â«assignment.exp.generateExpÂ»))
-					Â«ENDFORÂ»
-					Â«ENDFORÂ»'''
+					«FOR board : ref.getContainerOfType(System).boards»
+					«FOR component : board.getComponentsOfType(ref.componenttype)»
+					s.«board.name».«component.name».«ref.property.name» = «assignment.exp.generateExp»
+					s.send_message("«board.name»/«component.name»/«ref.property.name»", fmt.Sprintf("%v", «assignment.exp.generateExp»))
+					«ENDFOR»
+					«ENDFOR»'''
 				}
 			}
-			Reference: '''Â«assignment.ref.ref.nameÂ» = Â«assignment.exp.generateExpÂ»'''
+			Reference: '''«assignment.ref.ref.name» = «assignment.exp.generateExp»'''
 		}
 	}
 		
 		def CharSequence generateExp(Expression exp) {
 			switch exp {
-				Plus: '''Â«exp.left.generateExpÂ» + Â«exp.right.generateExpÂ»'''
-				Minus: '''Â«exp.left.generateExpÂ» - Â«exp.right.generateExpÂ»'''
-				Mult: '''Â«exp.left.generateExpÂ» * Â«exp.right.generateExpÂ»'''
-				Div: '''Â«exp.left.generateExpÂ» / Â«exp.right.generateExpÂ»'''
-				Text: '''"Â«exp.valueÂ»"'''
+				Plus: '''«exp.left.generateExp» + «exp.right.generateExp»'''
+				Minus: '''«exp.left.generateExp» - «exp.right.generateExp»'''
+				Mult: '''«exp.left.generateExp» * «exp.right.generateExp»'''
+				Div: '''«exp.left.generateExp» / «exp.right.generateExp»'''
+				Text: '''"«exp.value»"'''
 				Average: exp.generateAverage
-				Percentage: '''Â«exp.value / 100.0Â»'''
+				Percentage: '''«exp.value / 100.0»'''
 				PropertyUse: exp.generatePropertyUse
 				Reference: exp.ref.name
 				Number: exp.value.toString
 				Boolean: exp.value
 				FloatNumber: exp.value.toString
-				Or: '''Â«exp.left.generateExpÂ» || Â«exp.right.generateExpÂ»'''
-				And: '''Â«exp.left.generateExpÂ» && Â«exp.right.generateExpÂ»'''
-				Equality: '''Â«exp.left.generateExpÂ» Â«exp.opÂ» Â«exp.right.generateExpÂ»'''
-				Comparison: '''Â«exp.left.generateExpÂ» Â«exp.opÂ» Â«exp.right.generateExpÂ»'''
+				Or: '''«exp.left.generateExp» || «exp.right.generateExp»'''
+				And: '''«exp.left.generateExp» && «exp.right.generateExp»'''
+				Equality: '''«exp.left.generateExp» «exp.op» «exp.right.generateExp»'''
+				Comparison: '''«exp.left.generateExp» «exp.op» «exp.right.generateExp»'''
 			}
 		}
 	
 		def CharSequence generateAverage(Average avg) {
-			if (avg.ref.property.type == "integer") {return '''int_average(Â«avg.ref.generatePropertyUseÂ»)'''}
-			else if (avg.ref.property.type == "float") {return '''float_average(Â«avg.ref.generatePropertyUseÂ»)'''}
+			if (avg.ref.property.type == "integer") {return '''int_average(«avg.ref.generatePropertyUse»)'''}
+			else if (avg.ref.property.type == "float") {return '''float_average(«avg.ref.generatePropertyUse»)'''}
 
 		} 
 			
 		def CharSequence generatePropertyUse(PropertyUse use) {
 			if (use.board === null) {
-				'''[]Â«use.property.type.generatePropertyTypeÂ»{Â«use.generatePropertyListÂ»}'''
+				'''[]«use.property.type.generatePropertyType»{«use.generatePropertyList»}'''
 			} else {
-				'''s.Â«use.board.nameÂ».Â«use.component.nameÂ».Â«use.property.nameÂ»'''
+				'''s.«use.board.name».«use.component.name».«use.property.name»'''
 			}
 		}
 		
@@ -247,7 +248,7 @@ class ServerGenerator implements IGenerator{
 			var list = ""
 			for (Board board : use.getContainerOfType(System).boards) {
 				for (Component component : board.getComponentsOfType(use.componenttype)) {
-					list += '''s.Â«board.nameÂ».Â«component.nameÂ».Â«use.property.nameÂ», '''
+					list += '''s.«board.name».«component.name».«use.property.name», '''
 				}
 			}
 			
@@ -265,28 +266,30 @@ class ServerGenerator implements IGenerator{
 		}
 		
 		def CharSequence generateExpose(Expose expose) '''
-			func (s *server) Â«expose.nameÂ»(w http.ResponseWriter, r *http.Request) {
-				Â«FOR statement : expose.statementsÂ»
-				Â«statement.generateStatementÂ»
-				Â«ENDFORÂ»
+			func (s *server) «expose.name»(w http.ResponseWriter, r *http.Request) {
+				«FOR statement : expose.statements»
+				«statement.generateStatement»
+				«ENDFOR»
 			}
 		'''
 		
 		def CharSequence generateBoardType(Board board) '''
-			type board_Â«board.nameÂ» struct {
-				Â«FOR component : board.elements.filter(Component)Â»
-				Â«component.nameÂ» *Â«component.type.nameÂ»
-				Â«ENDFORÂ»
+			type board_«board.name» struct {
+				«FOR component : board.elements.filter(Component)»
+				«component.name» *«component.type.name»
+				«ENDFOR»
 			}
 		'''
 		
 		def CharSequence generateComponentType(ComponentType type) '''
-			type Â«type.nameÂ» struct {
-				Â«FOR property : type.propertiesÂ»
-				Â«property.nameÂ» Â«property.type.generatePropertyTypeÂ»
-				Â«ENDFORÂ»
+			type «type.name» struct {
+				«FOR property : type.properties»
+				«property.name» «property.type.generatePropertyType»
+				«ENDFOR»
 			}
 		'''
+	
+	//def void getName(ComponentType type)
 		
 		def CharSequence generatePropertyType(String type) {
 			switch type {
