@@ -3,7 +3,12 @@
  */
 package dk.sdu.mmmi.mdsd.iot_dsl.validation
 
-
+import dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL.Server
+import dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL.IoTDSLPackage
+import org.eclipse.xtext.validation.Check
+import dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL.Mqtt
+import dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL.Board
+import dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL.Component
 /**
  * This class contains custom validation rules. 
  *
@@ -11,15 +16,104 @@ package dk.sdu.mmmi.mdsd.iot_dsl.validation
  */
 class IoTDSLValidator extends AbstractIoTDSLValidator {
 	
-//	public static val INVALID_NAME = 'invalidName'
-//
-//	@Check
-//	def checkGreetingStartsWithCapital(Greeting greeting) {
-//		if (!Character.isUpperCase(greeting.name.charAt(0))) {
-//			warning('Name should start with a capital', 
-//					IoTDSLPackage.Literals.GREETING__NAME,
-//					INVALID_NAME)
-//		}
-//	}
+	protected static val ISSUE_CODE_PREFIX = 'dk.sdu.mmmi.mdsd.iot_dsl.ioTDSL'
+	public static val INVALID_IP = 'invalidIP'
+	public static val INVALID_HOST = 'invalidHost'
+	public static val INVALID_PORT = ISSUE_CODE_PREFIX + 'invalidPort'
+	public static val INVALID_RATE = ISSUE_CODE_PREFIX + 'invalidRate'
+	public static val REGEX_IP = "^(([1-9]?\\d|1\\d\\d|2[0-5][0-5]|2[0-4]\\d)\\.){3}([1-9]?\\d|1\\d\\d|2[0-5][0-5]|2[0-4]\\d)$"
+	public static val REGEX_HOSTNAME = "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
+	
+	@Check
+	def checkIfIPIsCorrect(Server server){
+		
+		if(!server.host.matches(REGEX_IP)){
+		warning('Each number in the IP should be between 0 and 255, or change it to IPv6', IoTDSLPackage.Literals.SERVER__HOST, INVALID_IP)
+
+		}
+	}
+	
+	@Check //Check if the hostname does not end with a . or other illegal characters
+	def checkIfHostNameIsCorrect(Mqtt mqtt){
+		
+		if(!mqtt.host.matches(REGEX_HOSTNAME)){
+			error('Hostname is invalid: Must not end with . or - and must be legal hostname', IoTDSLPackage.Literals.MQTT__HOST, INVALID_HOST)
+		}
+	
+	}
+	
+	@Check //Checks if the port number is in the legal range
+	def checkPortisCorrect(Mqtt mqtt){
+		
+		if(mqtt.port != 1883 && mqtt.port != 8883){
+			error('Please use either port 1883 or 8883 for MQTT over SSL', IoTDSLPackage.Literals.MQTT__PORT, INVALID_PORT, mqtt.port.toString)
+		}
+	}
+	
+	@Check
+	def checkBoardRate(Board board){
+
+
+		for(Component component : board.elements.filter(Component)){
+			var compTime = component.rate.time
+			var compTimeUnit = component.rate.timeUnit
+			var boardTime = board.maxRate.time
+			var boardTimeUnit = board.maxRate.timeUnit
+			
+			if(boardTimeUnit == 'seconds'){
+				if(compTimeUnit == 'seconds' && compTime < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+
+				}else if(compTimeUnit == 'minutes' && compTime * 60 < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+					
+				}else if(compTimeUnit == 'hours' && compTime * 3600 < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+				}
+				
+			}else if(boardTimeUnit == 'minutes'){
+				if(compTimeUnit == 'minutes' && compTime < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+					
+				}else if(compTimeUnit == 'seconds' && compTime / 60 < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+					
+				}else if(compTimeUnit == 'hours' && compTime * 60 < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+				}
+				
+			}else if(boardTimeUnit == 'hours'){
+				if(compTimeUnit == 'hours' && compTime < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+					
+				}else if(compTimeUnit == 'seconds' && compTime / 3600 < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+					
+				}else if(compTimeUnit == 'minutes' && compTime / 60 < boardTime){
+					warning('The maximum rate of the board is: ' + boardTime.toString + " " + boardTimeUnit.toString 
+					+ ', consider changing the rates of the components', IoTDSLPackage.Literals.BOARD__MAX_RATE, INVALID_RATE,
+					compTime.toString + " " + compTimeUnit.toString)
+				}
+				
+			}
+		}	
+		
+	}
 	
 }

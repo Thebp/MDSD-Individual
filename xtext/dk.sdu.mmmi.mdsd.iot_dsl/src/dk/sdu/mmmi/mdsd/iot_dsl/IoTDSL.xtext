@@ -45,11 +45,16 @@ IP:
 ;
 
 Board:
-	'board' name=ID ':'
+	'board' name=ID maxRate = MaxRate+ ':'
 	BEGIN
 		elements+=Element+
 	END
 ;
+
+MaxRate:
+	'maximum' 'every' time=INT timeUnit=TimeUnit
+;
+
 
 Element:
 	WiFi | Component
